@@ -2,4 +2,5 @@
   <Project Path="ApiGateway/ApiGateway.csproj" Id="ad984168-e728-46ef-8123-ef7193329c83" />
   <Project Path="OrdersAPI/OrdersAPI.csproj" Id="ee85f400-b230-486e-b4eb-dff3ce3e9b2f" />
   <Project Path="ProductsAPI/ProductsAPI.csproj" />
+  <Project Path="Shared/Shared.csproj" Id="55eceb50-1433-4342-8c16-766e33db05f4" />
 </Solution>

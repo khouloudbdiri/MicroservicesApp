@@ -1,98 +1,104 @@
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ProductsAPI;
+using Shared.Models;
 
-[Route("api/[controller]")]
-[ApiController]
-public class ProductsController : ControllerBase
+namespace ProductsAPI.Controllers
 {
-    private readonly ProductsAPIContext _context;
-    public ProductsController(ProductsAPIContext context)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ProductsController : ControllerBase
     {
-        _context = context;
-    }
+        private readonly ProductsAPIContext _context;
+        private readonly IPublishEndpoint _publishEndpoint;
 
-    // GET: api/Product
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProduct()
-    {
-        return await _context.Product.ToListAsync();
-    }
-
-    // GET: api/Product/5
-    [HttpGet("{productid}")]
-    public async Task<ActionResult<Product>> GetProduct(int productid)
-    {
-        var product = await _context.Product.FindAsync(productid);
-
-        if (product == null)
+        public ProductsController(ProductsAPIContext context, IPublishEndpoint publishEndpoint)
         {
-            return NotFound();
+            _context = context;
+            _publishEndpoint = publishEndpoint;
         }
 
-        return product;
-    }
-
-    // PUT: api/Product/5
-    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-    [HttpPut("{productid}")]
-    public async Task<IActionResult> PutProduct(int? productid, Product product)
-    {
-        if (productid != product.ProductId)
+        // GET: api/Products
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Product>>> GetProduct()
         {
-            return BadRequest();
+            return await _context.Product.ToListAsync();
         }
 
-        _context.Entry(product).State = EntityState.Modified;
-
-        try
+        // GET: api/Products/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Product>> GetProduct(int id)
         {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!ProductExists(productid))
+            var product = await _context.Product.FindAsync(id);
+            if (product == null)
             {
                 return NotFound();
             }
-            else
+            return product;
+        }
+
+        // PUT: api/Products/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutProduct(int id, Product product)
+        {
+            if (id != product.ProductId)
             {
+                return BadRequest();
+            }
+
+            _context.Entry(product).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProductExists(id))
+                {
+                    return NotFound();
+                }
                 throw;
             }
+
+            return NoContent();
         }
 
-        return NoContent();
-    }
-
-    // POST: api/Product
-    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-    [HttpPost]
-    public async Task<ActionResult<Product>> PostProduct(Product product)
-    {
-        _context.Product.Add(product);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction("GetProduct", new { productid = product.ProductId }, product);
-    }
-
-    // DELETE: api/Product/5
-    [HttpDelete("{productid}")]
-    public async Task<IActionResult> DeleteProduct(int? productid)
-    {
-        var product = await _context.Product.FindAsync(productid);
-        if (product == null)
+        // POST: api/Products  (publie le message ProductCreated)
+        [HttpPost]
+        public async Task<ActionResult<Product>> PostProduct(Product product)
         {
-            return NotFound();
+            _context.Product.Add(product);
+            await _context.SaveChangesAsync();
+
+            await _publishEndpoint.Publish<ProductCreated>(new ProductCreated
+            {
+                Id = product.ProductId,
+                Name = product.Name
+            });
+
+            return CreatedAtAction("GetProduct", new { id = product.ProductId }, product);
         }
 
-        _context.Product.Remove(product);
-        await _context.SaveChangesAsync();
+        // DELETE: api/Products/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProduct(int id)
+        {
+            var product = await _context.Product.FindAsync(id);
+            if (product == null)
+            {
+                return NotFound();
+            }
 
-        return NoContent();
-    }
+            _context.Product.Remove(product);
+            await _context.SaveChangesAsync();
 
-    private bool ProductExists(int? productid)
-    {
-        return _context.Product.Any(e => e.ProductId == productid);
+            return NoContent();
+        }
+
+        private bool ProductExists(int id)
+        {
+            return _context.Product.Any(e => e.ProductId == id);
+        }
     }
 }

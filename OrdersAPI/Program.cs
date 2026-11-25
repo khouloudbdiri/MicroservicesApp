@@ -1,3 +1,5 @@
+using MassTransit;
+using OrdersAPI.Consumer;
 using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("OrdersAPIContext") ?? throw new InvalidOperationException("Connection string 'OrdersAPIContext' not found.");
@@ -9,7 +11,22 @@ builder.Services.AddDbContext<OrdersAPIContext>(options => options.UseSqlServer(
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<ProductCreatedConsumer>();
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(new Uri("rabbitmq://localhost:4001"), h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+        cfg.ReceiveEndpoint("event-listener", e =>
+        {
+            e.ConfigureConsumer<ProductCreatedConsumer>(context);
+        });
+    });
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
